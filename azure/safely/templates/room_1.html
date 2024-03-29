@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<meta http-equiv="refresh" content="5">
+<div style="text-align: center;">
+    <h1 style="font-size: 16px;">Air Measurements - Dashboard</h1>
+    <img class="img-fluid" src='data:image/png;base64,{{ room_temperature }}' alt="Room Temperature"/>
+    <img class="img-fluid" src='data:image/png;base64,{{ room_humidity }}' alt="Room Humidity"/>
+    <img class="img-fluid" src='data:image/png;base64,{{ room_ppm_mq2 }}' alt="MQ2 PPM"/>
+    <img class="img-fluid" src='data:image/png;base64,{{ room_ppm_mq7 }}' alt="MQ7 PPM"/>
+    <img class="img-fluid" src='data:image/png;base64,{{ room_ppm_mq135 }}' alt="MQ135 PPM"/>
+</div>
+{% endblock %}

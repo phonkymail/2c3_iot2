@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Room 2{% endblock %}
+{% block content %}
+<meta http-equiv="refresh" content="21">
+<div class="container-fluid custom-bg-color">
+    <div class="text-center">
+        <h1 class="contact-text" style="font-size: 16px;">Safety_measurements - dashboard</h1>
+    </div>
+    <div>
+        <p>Air vent is currently: {{ 'ON' if shelly_state else 'OFF' }}</p>
+    </div>
+    <div>
+        <img src="data:image/png;base64,{{ battery_graph }}" alt="Battery data graph" style="width: 100%; height: auto;">
+    </div>
+</div>
+{% endblock %}

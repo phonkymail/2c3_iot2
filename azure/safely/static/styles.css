@@ -1,0 +1,9 @@
+/* styles.css */
+.custom-image {
+    max-width: 40%; /* Adjust the maximum width as needed */
+    height: auto; /* Maintain aspect ratio */
+}
+
+.text-left {
+    text-align: left;
+}
