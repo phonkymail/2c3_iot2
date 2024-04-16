@@ -30,18 +30,16 @@ global shelly1_activated
 shelly1_activated = False
 global shelly2_activated
 shelly2_activated = False
-# Global variable to control the display state
-display_enabled = True
-consecutive_zeros = 0  # Variable to track consecutive zero readings
-consecutive_ones = 0  # Variable to track consecutive one readings
 
-# Initialize NeoPixel
+display_enabled = True
+consecutive_zeros = 0  
+consecutive_ones = 0  
+
 pixel_pin = board.D18
 num_pixels = 12
 ORDER = neopixel.GRB
 pixels = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=0.2, auto_write=False, pixel_order=ORDER)
 
-# Initialize the OLED display
 disp = Adafruit_SSD1306.SSD1306_128_64(rst=None, i2c_address=0x3C)
 disp.begin()
 disp.clear()
@@ -49,9 +47,6 @@ disp.display()
 font = ImageFont.load_default()
 image = Image.new('1', (disp.width, disp.height))
 draw = ImageDraw.Draw(image)
-
-# Control the display state
-display_enabled = True
 
 def read_distance():
     GPIO.output(TRIGGER_PIN, True)
@@ -65,7 +60,7 @@ def read_distance():
         stop_time = time.time()
     elapsed_time = stop_time - start_time
     distance_cm = (elapsed_time * 34300) / 2
-    print(f"Distance: {distance_cm} cm")  # Debug output
+    print(f"Distance: {distance_cm} cm")
     return distance_cm
 
 def display_text(lines):
@@ -101,13 +96,11 @@ def display_sensor_info(temperature, humidity):
 
 def process_sensor_readings(mq2_reading, humidity):
     global shelly1_activated
-    # Check conditions to turn Shelly1 ON
     if humidity > 70 or mq2_reading > 100:
         if not shelly1_activated:
             print("Conditions met - Turning Shelly1 ON")
             control_shelly1_plug(True)
 
-    # Check conditions to turn Shelly1 OFF
     elif humidity < 65 and mq2_reading < 100:
         if shelly1_activated:
             print("Conditions not met - Turning Shelly1 OFF")
@@ -115,17 +108,16 @@ def process_sensor_readings(mq2_reading, humidity):
 
 def process_dht11_reading(sensor_data):
     global shelly1_activated, shelly2_activated, mq2_below_threshold
-    print("Received DHT11 data:", sensor_data)  # Debug print
+    print("Received DHT11 data:", sensor_data)
     temperature = sensor_data.get('temperature')
     humidity = sensor_data.get('humidity')
     
     if temperature is not None and humidity is not None:
-        print(f"Displaying temperature: {temperature}, humidity: {humidity}")  # Debug print
+        print(f"Displaying temperature: {temperature}, humidity: {humidity}")
         date_str = datetime.now().strftime("%d/%m/%Y")
         time_str = datetime.now().strftime("%H:%M")
         lines = [f"Date: {date_str}", f"Time: {time_str}", f"Temp: {temperature}°C", f"Hum: {humidity}%"]
 
-        # Read the distance from the ultrasonic sensor
         distance = read_distance()
         if distance <= 10:
             display_text(lines)
@@ -133,10 +125,8 @@ def process_dht11_reading(sensor_data):
         else:
             turn_off_display()
 
-        # Publish the data to MQTT
         publish_to_mqtt(sensor_data)
 
-        # Control Shelly2 based on temperature
         if temperature < 19:
             print("Temperature is below 8°C, turning Shelly2 ON")
             control_shelly2_plug(True)
@@ -144,7 +134,6 @@ def process_dht11_reading(sensor_data):
             print("Temperature is above 8°C, keeping Shelly2 OFF")
             control_shelly2_plug(False)
 
-        # Determine whether to turn Shelly1 ON or OFF
         if humidity > 70 or not mq2_below_threshold:
             print("Checking conditions for Shelly1 ON")
             publish_shelly1_state(True)
@@ -165,13 +154,13 @@ def process_dht11_reading(sensor_data):
 def control_shelly1_plug(turn_on):
     global shelly1_activated
     action = "on" if turn_on else "off"
-    if shelly1_activated != turn_on:  # Only act if state is actually changing
+    if shelly1_activated != turn_on: 
         print(f"Action: Turning Shelly1 Plug {'ON' if turn_on else 'OFF'}")
         try:
             response = requests.get(f"http://{SHELLY1_IP}/relay/0?turn={action}")
             if response.status_code == 200:
-                shelly1_activated = turn_on  # Update the state variable only if the request was successful
-                publish_shelly1_state(turn_on)  # Always publish state changes
+                shelly1_activated = turn_on 
+                publish_shelly1_state(turn_on)  
             else:
                 print(f"Failed to turn {'ON' if turn_on else 'OFF'} Shelly1 Plug. HTTP Status: {response.status_code}")
         except requests.exceptions.RequestException as e:
@@ -184,13 +173,13 @@ def control_shelly2_plug(turn_on):
     print(f"Turning Shelly2 Plug {'ON' if turn_on else 'OFF'}")
     try:
         requests.get(f"http://{SHELLY2_IP}/relay/0?turn={action}")
-        publish_shelly2_state(turn_on)  # Publish the Shelly2 plug state after controlling it
+        publish_shelly2_state(turn_on) 
     except requests.exceptions.RequestException as e:
         print(f"HTTP request error: {e}")
 
 def process_mq2_reading(reading):
     global mq2_below_threshold
-    print(f"Processing MQ2 reading: {reading}")  # Log the raw reading for traceability
+    print(f"Processing MQ2 reading: {reading}") 
     if reading < 100:
         mq2_below_threshold = True
         print("MQ2 reading is below threshold.")
@@ -198,12 +187,10 @@ def process_mq2_reading(reading):
         mq2_below_threshold = False
         print("MQ2 reading is above threshold.")
 
-    # Publish MQ2 data whenever it's processed, not only on state change
     mqtt_payload = {"mq2_value": reading}
     publish_to_mqtt({"sensor_type": "mq2", **mqtt_payload})
     print(f"Published MQ2 data to MQTT: {mqtt_payload}")
 
-    # Now decide to turn off Shelly1 if conditions are met
     if mq2_below_threshold and shelly1_activated:
         print("Conditions met to turn off Shelly1 due to MQ2 reading.")
         control_shelly1_plug(False)
@@ -212,7 +199,7 @@ def process_mq2_reading(reading):
 def publish_shelly1_state(turn_on):
     action = "ON" if turn_on else "OFF"
     topic = "shelly1/state"
-    payload = "1" if turn_on else "0"  # Publish "1" for ON, "0" for OFF
+    payload = "1" if turn_on else "0"
     try:
         publish.single(topic, payload, hostname=MQTT_BROKER)
         print(f"Published Shelly1 state to MQTT broker: {action}, Payload: {payload}")
@@ -222,7 +209,7 @@ def publish_shelly1_state(turn_on):
 def publish_shelly2_state(turn_on):
     action = "ON" if turn_on else "OFF"
     topic = "shelly2/state"
-    payload = "1" if turn_on else "0"  # Publish "1" for ON, "0" for OFF
+    payload = "1" if turn_on else "0" 
     publish.single(topic, payload, hostname=MQTT_BROKER)
     print(f"Published Shelly2 state to MQTT broker: {action}")
 
@@ -247,16 +234,16 @@ def tcp_server(port, process_function):
             threading.Thread(target=handle_connection, args=(conn, addr, process_function)).start()
 
 def handle_connection(conn, addr, process_function):
-    global consecutive_zeros, consecutive_ones  # Declare these as global if they are used globally
-    consecutive_zeros = 0  # Initialize at the start of handling each new connection
-    consecutive_ones = 0   # Initialize at the start of handling each new connection
+    global consecutive_zeros, consecutive_ones 
+    consecutive_zeros = 0 
+    consecutive_ones = 0 
     with conn:
         print(f"Connected to: {addr}")
         while True:
             data = conn.recv(1024)
             if not data:
                 break
-            print(f"Received data from {addr}: {data.decode()}")  # Confirm data reception
+            print(f"Received data from {addr}: {data.decode()}") 
             try:
                 sensor_data = json.loads(data.decode())
                 if sensor_data.get("sensor_type") == "mq2":
@@ -268,43 +255,41 @@ def handle_connection(conn, addr, process_function):
                 elif sensor_data.get("sensor_type") == "dht11":
                     process_dht11_reading(sensor_data)
 
-                # PIR sensor detection logic
                 elif sensor_data.get("sensor_type") == "pir":
                     if sensor_data.get("value") == 1:
                         consecutive_ones += 1
                         if consecutive_ones >= 3:
                             print("PIR sensor alert condition met, starting alert sequence.")
-                            consecutive_ones = 0  # reset counter after processing the alert
+                            consecutive_ones = 0  
                             for _ in range(3):
-                                pixels.fill((25, 0, 0))  # Red color for alert
+                                pixels.fill((25, 0, 0)) 
                                 pixels.show()
                                 time.sleep(0.2)
-                                pixels.fill((0, 0, 0))  # Turn off (black)
+                                pixels.fill((0, 0, 0))
                                 pixels.show()
                                 time.sleep(0.2)
                     else:
-                        consecutive_ones = 0  # reset on non-one reading
+                        consecutive_ones = 0 
                 
-                # Water and Flame sensor detection logic
                 elif sensor_data.get("sensor_type") in ["water", "flame"]:
                     if sensor_data.get("value") == 0:
                         consecutive_zeros += 1
                         if consecutive_zeros >= 3:
                             alert_type = "Water" if sensor_data.get("sensor_type") == "water" else "Flame"
                             print(f"{alert_type} sensor alert condition met, starting alert sequence.")
-                            consecutive_zeros = 0  # reset counter after processing the alert
+                            consecutive_zeros = 0 
                             for _ in range(3):
-                                pixels.fill((25, 0, 0))  # Red color for alert
+                                pixels.fill((25, 0, 0)) 
                                 pixels.show()
                                 time.sleep(0.2)
-                                pixels.fill((0, 0, 0))  # Turn off (black)
+                                pixels.fill((0, 0, 0)) 
                                 pixels.show()
                                 time.sleep(0.2)
                     else:
-                        consecutive_zeros = 0  # reset on non-zero reading
+                        consecutive_zeros = 0 
 
                 else:
-                    process_function(sensor_data)  # For other sensors, publish to MQTT
+                    process_function(sensor_data) 
             except Exception as e:
                 print(f"Error processing data from {addr}: {e}")
 
@@ -316,19 +301,14 @@ def start_tcp_server2():
     tcp_server(RPI_SERVER_PORT2, publish_to_mqtt)
 
 def main():
-    # Start TCP servers to listen for incoming data from ESP32
     threading.Thread(target=start_tcp_server1).start()
     threading.Thread(target=start_tcp_server2).start()
 
     try:
-        # Main loop is now only necessary if you want it to perform additional tasks.
-        # Currently, it just cleanly exits on a keyboard interrupt.
+
         while True:
-            # This loop could be used for other tasks that need constant checking,
-            # not directly related to sensor data processing.
-            time.sleep(10)  # Sleep time is increased to reduce CPU usage as it does not control sensor data now.
+            time.sleep(10) 
     except KeyboardInterrupt:
-        # Cleanup GPIO settings before closing the application
         GPIO.cleanup()
         print("Program terminated and GPIO cleaned up.")
 
