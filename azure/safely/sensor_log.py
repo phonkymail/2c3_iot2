@@ -18,6 +18,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS bat_data
              (datetime TEXT, BAT REAL NOT NULL)''')
 c.execute('''CREATE TABLE IF NOT EXISTS shelly1_state
              (datetime TEXT, state INTEGER NOT NULL)''')
+c.execute('''CREATE TABLE IF NOT EXISTS shelly2_state
+             (datetime TEXT, state INTEGER NOT NULL)''')
 
 conn.commit()
 
@@ -69,21 +71,15 @@ def on_message(client, userdata, message):
         c.execute("INSERT INTO shelly1_state (datetime, state) VALUES (?, ?)", (current_datetime, state_value))
         conn.commit()
 
+    elif message.topic == "shelly2/state":
+        current_datetime = dt.now().strftime("%d/%m/%Y %H:%M:%S")
+        payload_value = message.payload.decode()
+        state_value = 1 if payload_value == "1" else 0
+        c.execute("INSERT INTO shelly2_state (datetime, state) VALUES (?, ?)", (current_datetime, state_value))
+        conn.commit()
+
     if userdata["message_count"] >= 5:
         client.disconnect()
 
-def process_mq2_reading(reading):
-    if reading > 250:
-        publish_shelly_state(True)
-    else:
-        publish_shelly_state(False)
-
-def publish_shelly_state(turn_on):
-    action = "ON" if turn_on else "OFF"
-    topic = "shelly1/state"
-    payload = "1" if turn_on else "0"
-    subscribe.simple(topic, payload, hostname=MQTT_BROKER)
-    print(f"Published Shelly1 state to MQTT broker: {action}")
-
-topics = ["espair/dht11", "espair/mq2", "espair/mq7", "espair/mq135", "espsafe/bat", "espsafe/flame", "espsafe/knust", "espsafe/water", "espsafe/pir", "shelly1/state"]
-subscribe.callback(on_message, topics=topics, hostname="74.234.16.173", userdata={"message_count": 0})
+topics = ["espair/dht11", "espair/mq2", "espair/mq7", "espair/mq135", "espsafe/bat", "espsafe/flame", "espsafe/knust", "espsafe/water", "espsafe/pir", "shelly1/state", "shelly2/state"]
+subscribe.callback(on_message, topics=topics, hostname="20.82.164.255", userdata={"message_count": 0})
