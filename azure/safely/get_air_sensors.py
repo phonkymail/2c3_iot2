@@ -62,20 +62,21 @@ def get_battery_data(number_of_rows):
     battery_query = """SELECT datetime, BAT FROM bat_data ORDER BY datetime DESC;"""
     battery_datetimes = []
     battery_values = []
-
     try:
         conn = sqlite3.connect('database/sensor_data.db')
         cur = conn.cursor()
         cur.execute(battery_query)
         battery_rows = cur.fetchmany(number_of_rows)
-
         for battery_row in battery_rows:
             timestamp_str = battery_row[0]
             timestamp = datetime.strptime(timestamp_str, '%d/%m/%Y %H:%M:%S')
             formatted_timestamp = timestamp.strftime('%d/%m/%Y %H:%M:%S')
             battery_datetimes.append(formatted_timestamp)
             battery_values.append(battery_row[1])
-
+        if not battery_rows:
+            print("No battery data fetched.")
+        else:
+            print("Battery Data:", battery_datetimes, battery_values)
         return battery_datetimes[::-1], battery_values[::-1]
     except sqlite3.Error as sql_e:
         print(f"SQLite error occurred: {sql_e}")
@@ -83,10 +84,19 @@ def get_battery_data(number_of_rows):
         if conn:
             conn.close()
 
-def get_shelly_state():
+
+def get_shelly1_state():
     conn = sqlite3.connect('database/sensor_data.db')
     c = conn.cursor()
     c.execute("SELECT state FROM shelly1_state ORDER BY datetime DESC LIMIT 1")
+    state = c.fetchone()
+    conn.close()
+    return state[0] if state else None
+
+def get_shelly2_state():
+    conn = sqlite3.connect('database/sensor_data.db')
+    c = conn.cursor()
+    c.execute("SELECT state FROM shelly2_state ORDER BY datetime DESC LIMIT 1")
     state = c.fetchone()
     conn.close()
     return state[0] if state else None
