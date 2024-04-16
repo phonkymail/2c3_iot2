@@ -2,7 +2,7 @@ from datetime import datetime
 import base64
 from io import BytesIO
 from flask import Flask, render_template, request
-from get_air_sensors import get_mq_data, get_room_data, get_battery_data, get_shelly_state
+from get_air_sensors import get_mq_data, get_room_data, get_battery_data, get_shelly1_state, get_shelly2_state
 from matplotlib.figure import Figure
 import numpy as np
 
@@ -49,6 +49,7 @@ def room_ppm():
         fig = Figure()
         ax = fig.subplots()
         fig.subplots_adjust(bottom=0.3)
+        ax.tick_params(axis='x', which='both', rotation=65, labelsize=8)
         fig.patch.set_facecolor("#EBEBFF")
         datetimes = np.array(mq_data[sensor_name]["datetimes"])
         values = np.array(mq_data[sensor_name]["values"])
@@ -65,23 +66,25 @@ def room_ppm():
 
 def battery_data():
     timestamps, battery_values = get_battery_data(100)
-    fig = Figure(figsize=(12, 6), dpi=100)
+    if not timestamps or not battery_values:
+        print("No data available for plotting.")
+        return None  # Handle the case where there is no data gracefully
+    fig = Figure(figsize=(8, 4), dpi=120)  # Increased size and DPI
     fig.patch.set_facecolor("#EBEBFF")
     ax = fig.subplots()
-    ax.plot(timestamps, battery_values, linestyle="solid", c="#FF4500", linewidth="2")
-    ax.set_xlabel('Timestamp', fontsize=10)
-    ax.set_ylabel('Battery Level', fontsize=10)
-    ax.set_title('Battery Level vs Timestamp', fontsize=12)
+    ax.plot(timestamps, battery_values, linestyle="solid", c="#FF4500", linewidth=2)
+    ax.set_xlabel('Timestamp', fontsize=8)
+    ax.set_ylabel('Battery %', fontsize=8)
+    ax.set_title('Battery % over time', fontsize=10)
     ax.grid(color='gray', linestyle='--', linewidth=0.5)
-    ax.tick_params(axis='x', rotation=90)
+    ax.tick_params(axis='x', rotation=90, labelsize=4)
     ax.set_ylim(0, 100)
     fig.tight_layout()
-    for label in ax.xaxis.get_ticklabels():
-        label.set_fontsize(6)
     buf = BytesIO()
     fig.savefig(buf, format='png')
+    buf.seek(0)
     data = base64.b64encode(buf.read()).decode('ascii')
-        return data
+    return data
 
 @app.route('/')
 def home():
@@ -101,8 +104,12 @@ def room_1():
 @app.route('/room_2')
 def room_2():
     battery_graph = battery_data()
-    shelly_state = get_shelly_state() 
-    return render_template('room_2.html', battery_graph=battery_graph, shelly_state=shelly_state)
+    if not battery_graph:
+        print("Failed to generate battery graph.")
+    shelly1_state = get_shelly1_state()
+    shelly2_state = get_shelly2_state()
+    return render_template('room_2.html', battery_graph=battery_graph, shelly1_state=shelly1_state, shelly2_state=shelly2_state)
+
 
 @app.route('/room_3')
 def room_3():
